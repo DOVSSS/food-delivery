@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  email      String   @unique
+  password   String
+  name       String   @unique
+  avatarPath String   @default("/uploads/default-avatar.png") @map("avatar_path")
+  phone      String   @default("")
+
+  orders Order[] // 👈 связь с заказами
+}
+
+model Restaurant {
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  name  String @unique
+  slug  String @unique
+  image String
+
+  products Product[]
+
+  @@map("restaurant")
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  name        String @unique
+  slug        String @unique
+  description String
+  price       Int
+  image       String
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  orderItems OrderItem[]
+
+  @@map("product")
+}
+
+model Order {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  reference String @unique
+
+  userId String?
+  user   User? @relation(fields: [userId], references: [id]) // 👈 связь с юзером
+
+  items OrderItem[]
+
+  status String @default("PENDING") // 👈 статус заказа
+  total  Int                       // 👈 общая сумма
+
+  @@map("order")
+}
+
+model OrderItem {
+  id String @id @default(cuid())
+
+  orderId String
+  order   Order @relation(fields: [orderId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity Int @default(1)
+  price    Int // 👈 цена на момент заказа (ВАЖНО)
+
+  @@map("order_item")
+}
