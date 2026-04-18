@@ -18,7 +18,11 @@ model User {
   avatarPath String   @default("/uploads/default-avatar.png") @map("avatar_path")
   phone      String   @default("")
 
-  orders Order[] // 👈 связь с заказами
+  orders Order[]
+
+  @@index([email])
+  @@index([name])
+  @@map("users")
 }
 
 model Restaurant {

@@ -6,11 +6,11 @@ import { ConfigModule } from '@nestjs/config';
 import { RestaurantModule } from './restaurant/restaurant.module';
 import { ProductModule } from './product/product.module';
 import { UserModule } from './user/user.module';
-
+import { PrismaService } from './prisma.service';
 
 @Module({
   imports: [ConfigModule.forRoot(), AuthModule, RestaurantModule, ProductModule, UserModule],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService,PrismaService],
 })
 export class AppModule {}
