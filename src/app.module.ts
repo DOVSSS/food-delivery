@@ -7,10 +7,20 @@ import { RestaurantModule } from './restaurant/restaurant.module';
 import { ProductModule } from './product/product.module';
 import { UserModule } from './user/user.module';
 import { PrismaService } from './prisma.service';
+import { OrderModule } from './order/order.module';
+import { UploadModule } from './upload/upload.module';  // ← добавить
 
 @Module({
-  imports: [ConfigModule.forRoot(), AuthModule, RestaurantModule, ProductModule, UserModule],
+  imports: [
+    ConfigModule.forRoot(),
+    AuthModule,
+    RestaurantModule,
+    ProductModule,
+    UserModule,
+    OrderModule,
+    UploadModule,  // ← добавить
+  ],
   controllers: [AppController],
-  providers: [AppService,PrismaService],
+  providers: [AppService, PrismaService],
 })
 export class AppModule {}

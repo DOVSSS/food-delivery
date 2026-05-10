@@ -7,18 +7,28 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  RESTAURANT
+  COURIER
+  ADMIN
+}
+
 model User {
-  id         String   @id @default(cuid())
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  email      String   @unique
+  email      String @unique
   password   String
-  name       String   @unique
-  avatarPath String   @default("/uploads/default-avatar.png") @map("avatar_path")
-  phone      String   @default("")
+  name       String @unique
+  avatarPath String @default("/uploads/default-avatar.png") @map("avatar_path")
+  phone      String @default("")
 
-  orders Order[]
+  role Role @default(USER)
+
+  orders      Order[]
+  restaurants Restaurant[]  // ← добавить
 
   @@index([email])
   @@index([name])
@@ -33,6 +43,9 @@ model Restaurant {
   name  String @unique
   slug  String @unique
   image String
+
+  ownerId String?       // ← добавить
+  owner   User?   @relation(fields: [ownerId], references: [id])  // ← добавить
 
   products Product[]
 
@@ -64,29 +77,42 @@ model Order {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   reference String @unique
-
+  
+  status String @default("PENDING")
+  total  Int
+  
+  // 👇 ДОБАВЛЯЕМ ЭТИ ПОЛЯ
+  deliveryAddress String? @map("delivery_address")
+  deliveryTime    DateTime? @map("delivery_time")
+  comment         String?
+  
   userId String?
-  user   User? @relation(fields: [userId], references: [id]) // 👈 связь с юзером
+  user   User? @relation(fields: [userId], references: [id])
 
   items OrderItem[]
 
-  status String @default("PENDING") // 👈 статус заказа
-  total  Int                       // 👈 общая сумма
-
-  @@map("order")
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
 }
 
 model OrderItem {
   id String @id @default(cuid())
 
   orderId String
-  order   Order @relation(fields: [orderId], references: [id])
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   productId String
   product   Product @relation(fields: [productId], references: [id])
 
   quantity Int @default(1)
-  price    Int // 👈 цена на момент заказа (ВАЖНО)
+  price    Int
+  
+  // 👇 ДОБАВЛЯЕМ ЭТИ ПОЛЯ
+  productName String @map("product_name")
+  productImage String @map("product_image")
 
-  @@map("order_item")
+  @@unique([orderId, productId])
+  @@map("order_items")
 }
