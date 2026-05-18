@@ -5,10 +5,15 @@ import { join } from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  app.setGlobalPrefix('api');
-  app.enableCors();
   
-  // Раздаём папку uploads как статику по /uploads/filename.png
+  app.setGlobalPrefix('api');
+  
+  app.enableCors({
+    origin: '*', 
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
   app.useStaticAssets(join(__dirname, '..', 'uploads'), {
     prefix: '/uploads',
   });

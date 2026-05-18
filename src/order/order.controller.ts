@@ -50,6 +50,12 @@ export class OrderController {
     return this.orderService.getOrderStats();
   }
 
+  @Get('restaurant/:restaurantId')
+@UseGuards(JwtAuthGuard)
+findByRestaurant(@Param('restaurantId') restaurantId: string) {
+  return this.orderService.findByRestaurant(restaurantId);
+}
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   findById(@Param('id') id: string, @Request() req) {

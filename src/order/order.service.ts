@@ -87,6 +87,7 @@ export class OrderService {
             name: true,
             email: true,
             phone: true,
+             address: true,
           },
         },
         items: true,
@@ -109,6 +110,7 @@ export class OrderService {
             name: true,
             email: true,
             phone: true,
+             address: true,
           },
         },
         items: true,
@@ -132,6 +134,7 @@ export class OrderService {
             name: true,
             email: true,
             phone: true,
+             address: true,
           },
         },
         items: true,
@@ -158,6 +161,46 @@ export class OrderService {
 
     return orders.map(order => this.formatOrderResponse(order));
   }
+
+  async findByRestaurant(restaurantId: string) {
+  const orders = await this.prisma.order.findMany({
+    where: {
+      items: {
+        some: {
+          product: {
+            restaurantId,
+          },
+        },
+      },
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+           address: true,
+        },
+      },
+      items: {
+        include: {
+          product: {
+            select: {
+              restaurantId: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+  
+
+  return orders.map(order => this.formatOrderResponse(order));
+}
 
   async updateStatus(id: string, updateOrderDto: UpdateOrderDto) {
     const order = await this.findById(id);
@@ -282,6 +325,7 @@ export class OrderService {
         name: user.name,
         email: user.email,
         phone: user.phone,
+        address: user.address,
       } : null,
       total: order.total, // Уже в копейках
     };

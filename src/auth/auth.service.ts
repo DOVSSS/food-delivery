@@ -45,15 +45,16 @@ export class AuthService {
         })
         if (oldUser) throw new BadRequestException('такой email уже существует')
 
-        const user = await this.prisma.user.create({
-            data: {
-                email: dto.email,
-                name: faker.person.firstName(),
-                avatarPath: faker.image.avatar(),
-                phone: faker.phone.number(),
-                password: await argon2.hash(dto.password)
-            }
-        })
+       const user = await this.prisma.user.create({
+  data: {
+    email: dto.email,
+    name: dto.name ?? faker.person.firstName(),
+    phone: dto.phone ?? '',
+    address: dto.address ?? '',
+    password: await argon2.hash(dto.password),
+    avatarPath: '/uploads/default-avatar.png',
+  }
+})
 
         const tokens = await this.issueTokens(user.id, user.role)  // ← role
 
@@ -71,13 +72,16 @@ export class AuthService {
         return { accessToken, refreshToken }
     }
 
-    private returnUserFields(user: User) {
-        return {
-            id: user.id,
-            email: user.email,
-            role: user.role  // ← добавлен
-        }
-    }
+   private returnUserFields(user: User) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    phone: user.phone,
+    address: user.address,
+    role: user.role,
+  }
+}
 
     private async validateUser(dto: AuthDto) {
         const user = await this.prisma.user.findUnique({

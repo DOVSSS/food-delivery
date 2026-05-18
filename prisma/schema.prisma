@@ -24,7 +24,7 @@ model User {
   name       String @unique
   avatarPath String @default("/uploads/default-avatar.png") @map("avatar_path")
   phone      String @default("")
-
+   address    String       @default("") 
   role Role @default(USER)
 
   orders      Order[]
