@@ -1,24 +1,20 @@
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
-# Копируем package.json
+RUN apt-get update -y && apt-get install -y openssl
+
 COPY package*.json ./
 COPY yarn.lock ./
 
-# Устанавливаем зависимости
 RUN yarn install --frozen-lockfile
 
-# Копируем исходники
 COPY . .
 
-# Генерируем Prisma Client
 RUN npx prisma generate
 
-# Собираем NestJS
 RUN yarn build
 
-# Папка для загрузок
 RUN mkdir -p uploads
 
 EXPOSE 3000
