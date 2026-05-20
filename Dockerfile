@@ -2,20 +2,15 @@ FROM node:20-bullseye-slim
 
 WORKDIR /app
 
-RUN apt-get update -y && apt-get install -y \
-  openssl \
-  ca-certificates \
-  python3 \
-  make \
-  g++ \
-  && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y && apt-get install -y openssl ca-certificates python3 make g++
 
-COPY package.json yarn.lock ./
+COPY package*.json ./
+COPY yarn.lock ./
+
 RUN yarn install --frozen-lockfile
 
 COPY . .
 
-# 👇 важно: schema уже должна существовать
 RUN npx prisma generate
 
 RUN yarn build
@@ -24,4 +19,4 @@ RUN mkdir -p uploads
 
 EXPOSE 3000
 
-CMD ["yarn", "start:prod"]
+CMD ["sh", "-c", "npx prisma migrate deploy && yarn start:prod"]
