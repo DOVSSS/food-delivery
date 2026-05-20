@@ -2,21 +2,34 @@ FROM node:20-bullseye-slim
 
 WORKDIR /app
 
-RUN apt-get update -y && apt-get install -y openssl ca-certificates python3 make g++
+# системные зависимости (нужны Prisma + bcrypt + openssl)
+RUN apt-get update -y && apt-get install -y \
+  openssl \
+  ca-certificates \
+  python3 \
+  make \
+  g++ \
+  && rm -rf /var/lib/apt/lists/*
 
-COPY package*.json ./
-COPY yarn.lock ./
+# копируем зависимости
+COPY package.json yarn.lock ./
 
+# ставим зависимости
 RUN yarn install --frozen-lockfile
 
+# копируем код
 COPY . .
 
+# генерим prisma client (ОБЯЗАТЕЛЬНО)
 RUN npx prisma generate
 
+# билд nestjs
 RUN yarn build
 
+# папка под upload (у тебя используется static assets)
 RUN mkdir -p uploads
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && yarn start:prod"]
+# ❗ ВАЖНО: БЕЗ migrate deploy в startup
+CMD ["yarn", "start:prod"]
