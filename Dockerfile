@@ -2,7 +2,7 @@ FROM node:20-bullseye-slim
 
 WORKDIR /app
 
-RUN apt-get update -y && apt-get install -y openssl ca-certificates
+RUN apt-get update -y && apt-get install -y openssl ca-certificates python3 make g++
 
 COPY package*.json ./
 COPY yarn.lock ./
