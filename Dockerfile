@@ -1,8 +1,8 @@
-FROM node:20-slim
+FROM node:20-bullseye-slim
 
 WORKDIR /app
 
-RUN apt-get update -y && apt-get install -y openssl
+RUN apt-get update -y && apt-get install -y openssl ca-certificates
 
 COPY package*.json ./
 COPY yarn.lock ./
@@ -19,4 +19,4 @@ RUN mkdir -p uploads
 
 EXPOSE 3000
 
-CMD ["yarn", "start:prod"]
+CMD ["sh", "-c", "npx prisma migrate deploy && yarn start:prod"]
