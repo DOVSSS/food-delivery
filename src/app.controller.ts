@@ -1,12 +1,26 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { AppService } from './app.service';
+import { PrismaService } from './prisma.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Get()
   getHello(): string {
     return this.appService.getHello();
+  }
+
+  // Временный endpoint — удалить после использования!
+  @Get('make-admin/:email')
+  async makeAdmin(@Param('email') email: string) {
+    const user = await this.prisma.user.update({
+      where: { email },
+      data: { role: 'ADMIN' },
+    });
+    return { success: true, email: user.email, role: user.role };
   }
 }
