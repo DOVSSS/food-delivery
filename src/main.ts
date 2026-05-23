@@ -9,16 +9,20 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   
   app.enableCors({
-    origin: '*', 
+    origin: '*',
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+  // Папка для uploads — в постоянном хранилище
+  const uploadsPath = process.env.NODE_ENV === 'production' 
+    ? '/data/uploads' 
+    : join(__dirname, '..', 'uploads');
+
+  app.useStaticAssets(uploadsPath, {
     prefix: '/uploads',
   });
-const port = 3000;
-  await app.listen(port, '0.0.0.0');
-  console.log(`Server running on ${port}`);
+
+  await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
 }
 bootstrap();

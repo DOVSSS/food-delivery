@@ -9,13 +9,17 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 
+const uploadDestination = process.env.NODE_ENV === 'production'
+  ? '/data/uploads'
+  : './uploads';
+
 @Controller('upload')
 export class UploadController {
   @Post()
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: './uploads',
+        destination: uploadDestination,
         filename: (req, file, cb) => {
           const uniqueSuffix =
             Date.now() + '-' + Math.round(Math.random() * 1e9);
@@ -29,13 +33,12 @@ export class UploadController {
         cb(null, true);
       },
       limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB
+        fileSize: 5 * 1024 * 1024,
       },
     }),
   )
   uploadFile(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('Файл не загружен');
-
     return {
       path: `/uploads/${file.filename}`,
     };

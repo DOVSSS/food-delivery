@@ -15,7 +15,7 @@ RUN npx prisma generate
 
 RUN yarn build
 
-RUN mkdir -p uploads
+RUN mkdir -p /data/uploads
 
 EXPOSE 3000
 
