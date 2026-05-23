@@ -14,12 +14,13 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  // Папка для uploads — в постоянном хранилище
-  const uploadsPath = process.env.NODE_ENV === 'production' 
-    ? '/data/uploads' 
-    : join(__dirname, '..', 'uploads');
+  // Постоянное хранилище (новые файлы)
+  app.useStaticAssets('/data/uploads', {
+    prefix: '/uploads',
+  });
 
-  app.useStaticAssets(uploadsPath, {
+  // Fallback — файлы внутри контейнера (старые)
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
     prefix: '/uploads',
   });
 
