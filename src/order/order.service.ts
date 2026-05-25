@@ -7,7 +7,9 @@ import { generateOrderReference } from '../utils/generate-reference';
 
 @Injectable()
 export class OrderService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService,
+    
+  ) {}
 
   async create(userId: string, createOrderDto: CreateOrderDto) {
     const { items, deliveryAddress, comment } = createOrderDto;

@@ -158,6 +158,13 @@ export class UserService {
     });
   }
 
+  async savePushToken(userId: string, token: string) {
+  return this.prisma.user.update({
+    where: { id: userId },
+    data: { pushToken: token },
+  });
+}
+
   async getUserOrders(userId: string) {
     await this.findById(userId);
     
