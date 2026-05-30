@@ -23,6 +23,8 @@ export class NotificationsService {
           title,
           body,
           data: data || {},
+          channelId: 'orders',   // ← добавлено
+          priority: 'high',      // ← добавлено
         }),
       });
 
