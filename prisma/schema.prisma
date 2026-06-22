@@ -58,11 +58,11 @@ model Product {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  name        String @unique
-  slug        String @unique
-  description String
+  name        String  @unique
+  slug        String  @unique
+  description String?
   price       Int
-  image       String
+  image       String?
 
   restaurantId String
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
