@@ -1,0 +1,2 @@
+ALTER TABLE "product" ALTER COLUMN "description" DROP NOT NULL;
+ALTER TABLE "product" ALTER COLUMN "image" DROP NOT NULL;
