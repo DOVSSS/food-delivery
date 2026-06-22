@@ -9,7 +9,7 @@ import { UserModule } from './user/user.module';
 import { PrismaService } from './prisma.service';
 import { OrderModule } from './order/order.module';
 import { UploadModule } from './upload/upload.module';  // ← добавить
-
+import { CleanupController } from './cleanup/cleanup.controller';
 @Module({
   imports: [
     ConfigModule.forRoot(),
@@ -20,7 +20,7 @@ import { UploadModule } from './upload/upload.module';  // ← добавить
     OrderModule,
     UploadModule,  // ← добавить
   ],
-  controllers: [AppController],
+  controllers: [AppController,CleanupController,],
   providers: [AppService, PrismaService],
 })
 export class AppModule {}
