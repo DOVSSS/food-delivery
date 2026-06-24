@@ -19,4 +19,4 @@ RUN mkdir -p /data/uploads
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && yarn start:prod"]
+CMD ["sh", "-c", "npx prisma migrate resolve --rolled-back 20260623000002_add_categories_courier_delivery && npx prisma migrate deploy && yarn start:prod"]
