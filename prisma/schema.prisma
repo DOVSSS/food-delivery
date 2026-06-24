@@ -19,17 +19,18 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  email      String @unique
+  email      String  @unique
   password   String
-  name       String @unique
-  avatarPath String @default("/uploads/default-avatar.png") @map("avatar_path")
-  phone      String @default("")
-   address    String       @default("") 
-   pushToken  String?  @map("push_token")
-  role Role @default(USER)
+  name       String  @unique
+  avatarPath String  @default("/uploads/default-avatar.png") @map("avatar_path")
+  phone      String  @default("")
+  address    String  @default("")
+  pushToken  String? @map("push_token")
+  role       Role    @default(USER)
 
-  orders      Order[]
-  restaurants Restaurant[]  // ← добавить
+  orders        Order[]      @relation("CustomerOrders")
+  courierOrders Order[]      @relation("CourierOrders")
+  restaurants   Restaurant[]
 
   @@index([email])
   @@index([name])
@@ -37,20 +38,33 @@ model User {
 }
 
 model Restaurant {
-  id        String    @id @default(cuid())
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   name  String @unique
   slug  String @unique
   image String
 
-  ownerId String?       // ← добавить
-  owner   User?   @relation(fields: [ownerId], references: [id])  // ← добавить
+  ownerId String?
+  owner   User?   @relation(fields: [ownerId], references: [id])
 
   products Product[]
 
   @@map("restaurant")
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  name  String @unique
+  slug  String @unique
+  emoji String @default("🍽️")
+
+  products Product[]
+
+  @@map("categories")
 }
 
 model Product {
@@ -67,6 +81,9 @@ model Product {
   restaurantId String
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
   orderItems OrderItem[]
 
   @@map("product")
@@ -78,21 +95,27 @@ model Order {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   reference String @unique
-  
-  status String @default("PENDING")
-  total  Int
-  
-  // 👇 ДОБАВЛЯЕМ ЭТИ ПОЛЯ
-  deliveryAddress String? @map("delivery_address")
-  deliveryTime    DateTime? @map("delivery_time")
-  comment         String?
-  
+  status    String @default("PENDING")
+  total     Int
+
+  deliveryAddress  String?   @map("delivery_address")
+  deliveryTime     DateTime? @map("delivery_time")
+  deliveryFee      Int       @default(150) @map("delivery_fee")
+  comment          String?
+
   userId String?
-  user   User? @relation(fields: [userId], references: [id])
+  user   User?   @relation("CustomerOrders", fields: [userId], references: [id])
+
+  courierId        String?   @map("courier_id")
+  courier          User?     @relation("CourierOrders", fields: [courierId], references: [id])
+  courierLat       Float?    @map("courier_lat")
+  courierLng       Float?    @map("courier_lng")
+  courierUpdatedAt DateTime? @map("courier_updated_at")
 
   items OrderItem[]
 
   @@index([userId])
+  @@index([courierId])
   @@index([status])
   @@index([createdAt])
   @@map("orders")
@@ -102,17 +125,15 @@ model OrderItem {
   id String @id @default(cuid())
 
   orderId String
-  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
-  quantity Int @default(1)
-  price    Int
-  
-  // 👇 ДОБАВЛЯЕМ ЭТИ ПОЛЯ
-  productName String @map("product_name")
-  productImage String @map("product_image")
+  quantity     Int    @default(1)
+  price        Int
+  productName  String @map("product_name")
+  productImage String? @map("product_image")
 
   @@unique([orderId, productId])
   @@map("order_items")
