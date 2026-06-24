@@ -23,20 +23,5 @@ export class AppController {
     return { success: true, email: user.email, role: user.role };
   }
 
-  // Временный endpoint — удалить после использования!
-  @Post('migrate-resolve')
-  async migrateResolve(@Headers('x-secret') secret: string) {
-    if (secret !== 'dzu-cleanup-2024') {
-      throw new ForbiddenException();
-    }
-
-    await this.prisma.$executeRawUnsafe(`
-      UPDATE "_prisma_migrations"
-      SET "rolled_back_at" = NOW()
-      WHERE "migration_name" = '20260623000002_add_categories_courier_delivery'
-      AND "finished_at" IS NULL
-    `);
-
-    return { ok: true };
-  }
+  
 }
