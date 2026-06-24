@@ -26,13 +26,13 @@ ALTER TABLE "orders" ADD CONSTRAINT "orders_courier_id_fkey"
   ON DELETE SET NULL ON UPDATE CASCADE;
 CREATE INDEX "orders_courier_id_idx" ON "orders"("courier_id");
 
-
+-- Стоимость доставки в Order
 ALTER TABLE "orders" ADD COLUMN "delivery_fee" INTEGER NOT NULL DEFAULT 150;
 
-
+-- OrderItem: productId и productImage опциональные
 ALTER TABLE "order_items" ALTER COLUMN "product_id" DROP NOT NULL;
 ALTER TABLE "order_items" ALTER COLUMN "product_image" DROP NOT NULL;
-DROP CONSTRAINT IF EXISTS "order_items_product_id_fkey";
+ALTER TABLE "order_items" DROP CONSTRAINT IF EXISTS "order_items_product_id_fkey";
 ALTER TABLE "order_items" ADD CONSTRAINT "order_items_product_id_fkey"
   FOREIGN KEY ("product_id") REFERENCES "product"("id")
   ON DELETE SET NULL ON UPDATE CASCADE;
