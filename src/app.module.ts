@@ -9,7 +9,7 @@ import { UserModule } from './user/user.module';
 import { PrismaService } from './prisma.service';
 import { OrderModule } from './order/order.module';
 import { UploadModule } from './upload/upload.module';  // ← добавить
-
+import { CategoryModule } from './category/category.module';
 @Module({
   imports: [
     ConfigModule.forRoot(),
@@ -18,7 +18,8 @@ import { UploadModule } from './upload/upload.module';  // ← добавить
     ProductModule,
     UserModule,
     OrderModule,
-    UploadModule,  // ← добавить
+    UploadModule, 
+     CategoryModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

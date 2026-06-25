@@ -20,4 +20,8 @@ export class CreateProductDto {
   @IsString()
   @IsNotEmpty()
   restaurantId: string;
+
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
 }
