@@ -19,4 +19,4 @@ RUN mkdir -p /data/uploads
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && yarn start:prod"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma generate && yarn start:prod"]
