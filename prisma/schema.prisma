@@ -80,9 +80,8 @@ model Product {
 
   restaurantId String
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
-
-  categoryId String?
-  category   Category? @relation(fields: [categoryId], references: [id])
+categoryId String? @map("category_id")
+category   Category? @relation(fields: [categoryId], references: [id])
 
   orderItems OrderItem[]
 
