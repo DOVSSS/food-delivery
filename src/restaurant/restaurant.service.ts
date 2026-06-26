@@ -6,54 +6,61 @@ import { generateSlug } from '../utils/generate-slug';
 export class RestaurantService {
   constructor(private prisma: PrismaService) {}
 
-  async create(data: { name: string; image: string; ownerId: string }) {  // ← ownerId
+  async create(data: { name: string; image: string; ownerId: string }) {
     const slug = generateSlug(data.name);
-
     return this.prisma.restaurant.create({
-      data: {
-        ...data,
-        slug,
-      },
+      data: { ...data, slug },
     });
   }
 
-  async findByOwner(ownerId: string) {  // ← новый метод
+  async findByOwner(ownerId: string) {
     return this.prisma.restaurant.findFirst({
       where: { ownerId },
-      include: { products: true },
+      include: {
+        products: {
+          include: { category: true },
+        },
+      },
     });
   }
 
   async findAll() {
     return this.prisma.restaurant.findMany({
-      include: { products: true },
+      include: {
+        products: {
+          include: { category: true },
+        },
+      },
     });
   }
 
   async findBySlug(slug: string) {
     return this.prisma.restaurant.findUnique({
       where: { slug },
-      include: { products: true },
+      include: {
+        products: {
+          include: { category: true },
+        },
+      },
     });
   }
 
   async findById(id: string) {
     return this.prisma.restaurant.findUnique({
       where: { id },
-      include: { products: true },
+      include: {
+        products: {
+          include: { category: true },
+        },
+      },
     });
   }
 
   async update(id: string, data: { name?: string; image?: string }) {
-    const existing = await this.prisma.restaurant.findUnique({
-      where: { id },
-    });
-
+    const existing = await this.prisma.restaurant.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Restaurant not found');
-
     let slug = existing.slug;
     if (data.name) slug = generateSlug(data.name);
-
     return this.prisma.restaurant.update({
       where: { id },
       data: { ...data, slug },
@@ -61,8 +68,6 @@ export class RestaurantService {
   }
 
   async delete(id: string) {
-    return this.prisma.restaurant.delete({
-      where: { id },
-    });
+    return this.prisma.restaurant.delete({ where: { id } });
   }
 }
