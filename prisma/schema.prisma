@@ -137,3 +137,12 @@ model OrderItem {
   @@unique([orderId, productId])
   @@map("order_items")
 }
+
+
+model Settings {
+  id    String @id @default("default")
+  deliveryFee  Int @default(150) @map("delivery_fee")
+  serviceFee   Int @default(50) @map("service_fee")
+
+  @@map("settings")
+}
