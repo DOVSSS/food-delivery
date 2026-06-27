@@ -10,6 +10,7 @@ import { PrismaService } from './prisma.service';
 import { OrderModule } from './order/order.module';
 import { UploadModule } from './upload/upload.module';  // ← добавить
 import { CategoryModule } from './category/category.module';
+import { SettingsModule } from './settings/settings.module';
 @Module({
   imports: [
     ConfigModule.forRoot(),
@@ -20,6 +21,7 @@ import { CategoryModule } from './category/category.module';
     OrderModule,
     UploadModule, 
      CategoryModule,
+     SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

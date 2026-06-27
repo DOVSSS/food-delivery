@@ -6,11 +6,14 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { generateOrderReference } from '../utils/generate-reference';
 import { NotificationsService } from '../notifications/notifications.service';
 
+import { SettingsService } from '../settings/settings.service';
+
 @Injectable()
 export class OrderService {
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
+    private settingsService: SettingsService,
   ) {}
 
   async create(userId: string, createOrderDto: CreateOrderDto) {
@@ -19,6 +22,11 @@ export class OrderService {
     if (!items || items.length === 0) {
       throw new BadRequestException('Order must contain at least one item');
     }
+
+    // Получаем настройки
+    const settings = await this.settingsService.get();
+    const deliveryFee = settings.deliveryFee;
+    const serviceFee = settings.serviceFee;
 
     const productIds = items.map(item => item.productId);
     const products = await this.prisma.product.findMany({
@@ -38,11 +46,11 @@ export class OrderService {
 
     const productMap = new Map(products.map(p => [p.id, p]));
 
-    let total = 0;
+    let subtotal = 0;
     const orderItems = items.map(item => {
       const product = productMap.get(item.productId);
       if (!product) throw new BadRequestException(`Product ${item.productId} not found`);
-      total += product.price * item.quantity;
+      subtotal += product.price * item.quantity;
       return {
         productId: item.productId,
         quantity: item.quantity,
@@ -52,6 +60,7 @@ export class OrderService {
       };
     });
 
+    const total = subtotal + deliveryFee + serviceFee;
     const reference = generateOrderReference();
 
     const order = await this.prisma.$transaction(async (prisma) => {
@@ -59,6 +68,7 @@ export class OrderService {
         data: {
           reference,
           total,
+          deliveryFee,
           deliveryAddress,
           comment,
           userId,
@@ -84,7 +94,7 @@ export class OrderService {
       }
     }
 
-    return this.formatOrderResponse(order);
+    return { ...this.formatOrderResponse(order), subtotal, deliveryFee, serviceFee };
   }
 
   async updateStatus(id: string, updateOrderDto: UpdateOrderDto) {
