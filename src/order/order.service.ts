@@ -1,5 +1,5 @@
 // src/order/order.service.ts
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException,ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -147,16 +147,17 @@ export class OrderService {
   }
 
   async findById(id: string) {
-    const order = await this.prisma.order.findUnique({
-      where: { id },
-      include: {
-        user: { select: { id: true, name: true, email: true, phone: true, address: true } },
-        items: true,
-      },
-    });
-    if (!order) throw new NotFoundException(`Order with ID ${id} not found`);
-    return this.formatOrderResponse(order);
-  }
+  const order = await this.prisma.order.findUnique({
+    where: { id },
+    include: {
+      user: { select: { id: true, name: true, email: true, phone: true, address: true } },
+      courier: { select: { id: true, name: true, phone: true } },
+      items: true,
+    },
+  });
+  if (!order) throw new NotFoundException(`Order with ID ${id} not found`);
+  return this.formatOrderResponse(order);
+}
 
   async findByReference(reference: string) {
     const order = await this.prisma.order.findUnique({
@@ -250,6 +251,50 @@ export class OrderService {
     }
   }
 
+  async acceptOrder(orderId: string, courierId: string) {
+  const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+  if (!order) throw new NotFoundException('Order not found');
+  if (order.status !== 'READY') {
+    throw new BadRequestException('Order is not ready for delivery');
+  }
+  if (order.courierId) {
+    throw new BadRequestException('Order already taken by another courier');
+  }
+
+  const updated = await this.prisma.order.update({
+    where: { id: orderId },
+    data: {
+      courierId,
+      status: 'DELIVERING',
+      deliveryTime: new Date(),
+    },
+    include: {
+      items: true,
+      courier: { select: { id: true, name: true, phone: true } },
+    },
+  });
+
+  return this.formatOrderResponse(updated);
+}
+
+async updateLocation(orderId: string, courierId: string, lat: number, lng: number) {
+  const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+  if (!order) throw new NotFoundException('Order not found');
+  if (order.courierId !== courierId) {
+    throw new ForbiddenException('You are not the courier for this order');
+  }
+
+  return this.prisma.order.update({
+    where: { id: orderId },
+    data: {
+      courierLat: lat,
+      courierLng: lng,
+      courierUpdatedAt: new Date(),
+    },
+    select: { id: true, courierLat: true, courierLng: true, courierUpdatedAt: true },
+  });
+}
+
   private formatOrderResponse(order: any) {
     const { user, ...rest } = order;
     return {
@@ -259,3 +304,4 @@ export class OrderService {
     };
   }
 }
+

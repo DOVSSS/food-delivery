@@ -19,7 +19,7 @@ import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-
+import { UpdateLocationDto } from './dto/update-location.dto';
 @Controller('orders')
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
@@ -76,7 +76,24 @@ findByRestaurant(@Param('restaurantId') restaurantId: string) {
       throw new ForbiddenException('Access denied');
     }
     return this.orderService.findByUser(userId);
+
+
   }
+
+
+
+@Patch(':id/accept')
+@UseGuards(JwtAuthGuard)
+acceptOrder(@Param('id') id: string, @Request() req) {
+  return this.orderService.acceptOrder(id, req.user.id);
+}
+
+@Patch(':id/location')
+@UseGuards(JwtAuthGuard)
+@UsePipes(new ValidationPipe({ transform: true }))
+updateLocation(@Param('id') id: string, @Request() req, @Body() dto: UpdateLocationDto) {
+  return this.orderService.updateLocation(id, req.user.id, dto.lat, dto.lng);
+}
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
