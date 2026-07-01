@@ -172,13 +172,16 @@ export class OrderService {
   }
 
   async findByUser(userId: string) {
-    const orders = await this.prisma.order.findMany({
-      where: { userId },
-      include: { items: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    return orders.map(order => this.formatOrderResponse(order));
-  }
+  const orders = await this.prisma.order.findMany({
+    where: { userId },
+    include: {
+      items: true,
+      courier: { select: { id: true, name: true, phone: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  return orders.map(order => this.formatOrderResponse(order));
+}
 
   async findByRestaurant(restaurantId: string) {
     const orders = await this.prisma.order.findMany({
