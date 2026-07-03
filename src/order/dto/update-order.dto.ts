@@ -1,10 +1,10 @@
 // src/order/dto/update-order.dto.ts
-import { IsOptional, IsString, IsIn, IsInt, IsPositive } from 'class-validator';
+import { IsOptional, IsString, IsIn } from 'class-validator';
 
 export class UpdateOrderDto {
   @IsOptional()
   @IsString()
-  @IsIn(['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERING', 'DELIVERED', 'CANCELLED'])
+  @IsIn(['PENDING', 'ACCEPTED', 'READY', 'DELIVERING', 'DELIVERED', 'CANCELLED'])
   status?: string;
 
   @IsOptional()
