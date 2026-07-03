@@ -1,11 +1,10 @@
 // src/order/order.service.ts
-import { Injectable, NotFoundException, BadRequestException,ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { generateOrderReference } from '../utils/generate-reference';
 import { NotificationsService } from '../notifications/notifications.service';
-
 import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
@@ -23,7 +22,6 @@ export class OrderService {
       throw new BadRequestException('Order must contain at least one item');
     }
 
-    // Получаем настройки
     const settings = await this.settingsService.get();
     const deliveryFee = settings.deliveryFee;
     const serviceFee = settings.serviceFee;
@@ -79,7 +77,7 @@ export class OrderService {
       });
     });
 
-    // Уведомляем владельцев ресторанов
+    // Уведомляем ресторан
     const notifiedOwners = new Set<string>();
     for (const product of products) {
       const owner = product.restaurant?.owner;
@@ -92,6 +90,21 @@ export class OrderService {
           { orderId: order.id },
         );
       }
+    }
+
+    // Уведомляем всех курьеров о новом заказе
+    const couriers = await this.prisma.user.findMany({
+      where: { role: 'COURIER', pushToken: { not: null } },
+      select: { pushToken: true },
+    });
+    const courierTokens = couriers.map(c => c.pushToken!);
+    if (courierTokens.length > 0) {
+      await this.notificationsService.sendToMany(
+        courierTokens,
+        '🛍️ Новый заказ!',
+        `Поступил новый заказ #${reference}`,
+        { orderId: order.id },
+      );
     }
 
     return { ...this.formatOrderResponse(order), subtotal, deliveryFee, serviceFee };
@@ -108,23 +121,60 @@ export class OrderService {
         status: updateOrderDto.status,
         deliveryAddress: updateOrderDto.deliveryAddress,
         comment: updateOrderDto.comment,
-        ...(updateOrderDto.status === 'DELIVERING' && { deliveryTime: new Date() }),
       },
-      include: { items: true },
+      include: {
+        items: true,
+        user: { select: { id: true, name: true, email: true, phone: true, address: true, pushToken: true } },
+      },
     });
 
-    // Уведомляем курьеров когда заказ готов
-    if (updateOrderDto.status === 'READY') {
+    // Уведомляем клиента и курьеров при смене статуса рестораном
+    if (updateOrderDto.status === 'ACCEPTED') {
+      // Клиенту
+      if (updatedOrder.user?.pushToken) {
+        await this.notificationsService.sendPushNotification(
+          updatedOrder.user.pushToken,
+          '✅ Заказ принят!',
+          `Ресторан принял ваш заказ #${order.reference}`,
+          { orderId: id },
+        );
+      }
+      // Курьерам
       const couriers = await this.prisma.user.findMany({
         where: { role: 'COURIER', pushToken: { not: null } },
         select: { pushToken: true },
       });
-
       const tokens = couriers.map(c => c.pushToken!);
       if (tokens.length > 0) {
         await this.notificationsService.sendToMany(
           tokens,
-          '🚴 Заказ готов к доставке!',
+          '✅ Заказ принят рестораном',
+          `Заказ #${order.reference} принят, готовится`,
+          { orderId: id },
+        );
+      }
+    }
+
+    if (updateOrderDto.status === 'READY') {
+      // Клиенту
+      if (updatedOrder.user?.pushToken) {
+        await this.notificationsService.sendPushNotification(
+          updatedOrder.user.pushToken,
+          '🍕 Заказ готов!',
+          `Ваш заказ #${order.reference} готов, ждём курьера`,
+          { orderId: id },
+        );
+      }
+      // Курьерам
+      const couriers = await this.prisma.user.findMany({
+        where: { role: 'COURIER', pushToken: { not: null } },
+        select: { pushToken: true },
+      });
+      const tokens = couriers.map(c => c.pushToken!);
+      if (tokens.length > 0) {
+        await this.notificationsService.sendToMany(
+          tokens,
+          '🚴 Заказ готов к выдаче!',
           `Заказ #${order.reference} ожидает курьера`,
           { orderId: id },
         );
@@ -134,7 +184,6 @@ export class OrderService {
     return this.formatOrderResponse(updatedOrder);
   }
 
-  // Остальные методы без изменений
   async findAll() {
     const orders = await this.prisma.order.findMany({
       include: {
@@ -147,17 +196,17 @@ export class OrderService {
   }
 
   async findById(id: string) {
-  const order = await this.prisma.order.findUnique({
-    where: { id },
-    include: {
-      user: { select: { id: true, name: true, email: true, phone: true, address: true } },
-      courier: { select: { id: true, name: true, phone: true } },
-      items: true,
-    },
-  });
-  if (!order) throw new NotFoundException(`Order with ID ${id} not found`);
-  return this.formatOrderResponse(order);
-}
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: {
+        user: { select: { id: true, name: true, email: true, phone: true, address: true } },
+        courier: { select: { id: true, name: true, phone: true } },
+        items: true,
+      },
+    });
+    if (!order) throw new NotFoundException(`Order with ID ${id} not found`);
+    return this.formatOrderResponse(order);
+  }
 
   async findByReference(reference: string) {
     const order = await this.prisma.order.findUnique({
@@ -172,16 +221,16 @@ export class OrderService {
   }
 
   async findByUser(userId: string) {
-  const orders = await this.prisma.order.findMany({
-    where: { userId },
-    include: {
-      items: true,
-      courier: { select: { id: true, name: true, phone: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-  return orders.map(order => this.formatOrderResponse(order));
-}
+    const orders = await this.prisma.order.findMany({
+      where: { userId },
+      include: {
+        items: true,
+        courier: { select: { id: true, name: true, phone: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return orders.map(order => this.formatOrderResponse(order));
+  }
 
   async findByRestaurant(restaurantId: string) {
     const orders = await this.prisma.order.findMany({
@@ -241,9 +290,8 @@ export class OrderService {
   private validateStatusTransition(currentStatus: string, newStatus?: string) {
     if (!newStatus || currentStatus === newStatus) return;
     const validTransitions: Record<string, string[]> = {
-      PENDING: ['CONFIRMED', 'CANCELLED'],
-      CONFIRMED: ['PREPARING', 'CANCELLED'],
-      PREPARING: ['READY', 'CANCELLED'],
+      PENDING: ['ACCEPTED', 'CANCELLED'],
+      ACCEPTED: ['READY', 'CANCELLED'],
       READY: ['DELIVERING', 'CANCELLED'],
       DELIVERING: ['DELIVERED', 'CANCELLED'],
       DELIVERED: [],
@@ -255,48 +303,62 @@ export class OrderService {
   }
 
   async acceptOrder(orderId: string, courierId: string) {
-  const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-  if (!order) throw new NotFoundException('Order not found');
-  if (order.status !== 'READY') {
-    throw new BadRequestException('Order is not ready for delivery');
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { user: { select: { pushToken: true } } },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.status !== 'READY') {
+      throw new BadRequestException('Order is not ready for delivery');
+    }
+    if (order.courierId) {
+      throw new BadRequestException('Order already taken by another courier');
+    }
+
+    const updated = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        courierId,
+        status: 'DELIVERING',
+        deliveryTime: new Date(),
+      },
+      include: {
+        items: true,
+        courier: { select: { id: true, name: true, phone: true } },
+        user: { select: { id: true, name: true, email: true, phone: true, address: true, pushToken: true } },
+      },
+    });
+
+    // Уведомляем клиента
+    if (updated.user?.pushToken) {
+      await this.notificationsService.sendPushNotification(
+        updated.user.pushToken,
+        '🚴 Курьер в пути!',
+        `Курьер забрал ваш заказ #${order.reference}`,
+        { orderId },
+      );
+    }
+
+    return this.formatOrderResponse(updated);
   }
-  if (order.courierId) {
-    throw new BadRequestException('Order already taken by another courier');
+
+  async updateLocation(orderId: string, courierId: string, lat: number, lng: number) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.courierId !== courierId) {
+      throw new ForbiddenException('You are not the courier for this order');
+    }
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        courierLat: lat,
+        courierLng: lng,
+        courierUpdatedAt: new Date(),
+      },
+      select: { id: true, courierLat: true, courierLng: true, courierUpdatedAt: true },
+    });
   }
-
-  const updated = await this.prisma.order.update({
-    where: { id: orderId },
-    data: {
-      courierId,
-      status: 'DELIVERING',
-      deliveryTime: new Date(),
-    },
-    include: {
-      items: true,
-      courier: { select: { id: true, name: true, phone: true } },
-    },
-  });
-
-  return this.formatOrderResponse(updated);
-}
-
-async updateLocation(orderId: string, courierId: string, lat: number, lng: number) {
-  const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-  if (!order) throw new NotFoundException('Order not found');
-  if (order.courierId !== courierId) {
-    throw new ForbiddenException('You are not the courier for this order');
-  }
-
-  return this.prisma.order.update({
-    where: { id: orderId },
-    data: {
-      courierLat: lat,
-      courierLng: lng,
-      courierUpdatedAt: new Date(),
-    },
-    select: { id: true, courierLat: true, courierLng: true, courierUpdatedAt: true },
-  });
-}
 
   private formatOrderResponse(order: any) {
     const { user, ...rest } = order;
