@@ -77,13 +77,14 @@ export class UserService {
         name: true,
         avatarPath: true,
         phone: true,
+        address: true,
         createdAt: true,
         updatedAt: true,
       }
     });
   }
 
-  // Остальные методы остаются без изменений...
+  
   async findAll() {
     return this.prisma.user.findMany({
       select: {
