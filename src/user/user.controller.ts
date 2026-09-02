@@ -15,7 +15,8 @@ import {
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-
+import { UseGuards, Request } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
@@ -59,6 +60,13 @@ export class UserController {
   update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return this.userService.update(id, updateUserDto);
   }
+
+  @Delete('me')
+@UseGuards(JwtAuthGuard)
+@HttpCode(HttpStatus.NO_CONTENT)
+deleteMe(@Request() req) {
+  return this.userService.delete(req.user.id);
+}
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
