@@ -65,12 +65,14 @@ export class UserController {
 @UseGuards(JwtAuthGuard)
 @HttpCode(HttpStatus.NO_CONTENT)
 deleteMe(@Request() req) {
+  console.log('>>> HIT deleteMe, user.id =', req.user?.id);
   return this.userService.delete(req.user.id);
 }
 
-  @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  delete(@Param('id') id: string) {
-    return this.userService.delete(id);
-  }
+@Delete(':id')
+@HttpCode(HttpStatus.NO_CONTENT)
+delete(@Param('id') id: string) {
+  console.log('>>> HIT delete(:id), id =', id);
+  return this.userService.delete(id);
+}
 }
