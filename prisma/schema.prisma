@@ -46,6 +46,9 @@ model Restaurant {
   slug  String @unique
   image String
 
+  openTime  String? @map("open_time")
+  closeTime String? @map("close_time")
+
   ownerId String?
   owner   User?   @relation(fields: [ownerId], references: [id])
 
