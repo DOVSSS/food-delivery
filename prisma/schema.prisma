@@ -102,6 +102,8 @@ model Order {
 
   deliveryAddress  String?   @map("delivery_address")
   deliveryTime     DateTime? @map("delivery_time")
+  deliveryLat      Float?    @map("delivery_lat")
+  deliveryLng      Float?    @map("delivery_lng")
   deliveryFee      Int       @default(150) @map("delivery_fee")
   comment          String?
 

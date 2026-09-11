@@ -16,7 +16,7 @@ export class OrderService {
   ) {}
 
   async create(userId: string, createOrderDto: CreateOrderDto) {
-    const { items, deliveryAddress, comment } = createOrderDto;
+    const { items, deliveryAddress, comment, deliveryLat, deliveryLng } = createOrderDto;
 
     if (!items || items.length === 0) {
       throw new BadRequestException('Order must contain at least one item');
@@ -68,6 +68,8 @@ export class OrderService {
           total,
           deliveryFee,
           deliveryAddress,
+          deliveryLat,
+          deliveryLng,
           comment,
           userId,
           status: 'PENDING',
