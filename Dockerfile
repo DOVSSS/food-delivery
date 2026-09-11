@@ -11,14 +11,22 @@ COPY yarn.lock ./
 
 RUN yarn install --frozen-lockfile
 
+# Copy schema first so prisma generate always matches the committed schema
+COPY prisma ./prisma
+
+RUN npx prisma generate --schema=./prisma/schema.prisma \
+    && grep -q openTime node_modules/.prisma/client/index.d.ts
+
 COPY . .
 
-RUN npx prisma generate
-
-RUN yarn build
+RUN npx prisma generate --schema=./prisma/schema.prisma \
+    && grep -q openTime node_modules/.prisma/client/index.d.ts \
+    && yarn build
 
 RUN mkdir -p /data/uploads
 
+RUN chmod +x docker-entrypoint.sh
+
 EXPOSE 3000
 
-CMD ["sh", "-c", "yarn start:prod"]
+CMD ["./docker-entrypoint.sh"]
