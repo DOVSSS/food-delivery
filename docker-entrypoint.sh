@@ -17,5 +17,10 @@ if (!client.includes('openTime')) {
 console.log('[entrypoint] Prisma client OK (openTime present)');
 "
 
+if ! grep -q 'role: true' dist/user/user.service.js; then
+  echo "[entrypoint] FATAL: dist/user/user.service.js missing role in findAll/update select"
+  exit 1
+fi
+
 echo "[entrypoint] Starting NestJS..."
 exec node dist/main
