@@ -131,10 +131,7 @@ export class OrderService {
         deliveryAddress: updateOrderDto.deliveryAddress,
         comment: updateOrderDto.comment,
       },
-      include: {
-        items: true,
-        user: { select: { id: true, name: true, email: true, phone: true, address: true, pushToken: true } },
-      },
+      include: this.orderListInclude({ userPushToken: true }),
     });
 
     // Уведомляем клиента и курьеров при смене статуса рестораном
@@ -280,7 +277,7 @@ export class OrderService {
     const cancelledOrder = await this.prisma.order.update({
       where: { id },
       data: { status: 'CANCELLED' },
-      include: { items: true },
+      include: this.orderListInclude(),
     });
     return this.formatOrderResponse(cancelledOrder);
   }
@@ -392,9 +389,18 @@ export class OrderService {
     });
   }
 
-  private orderListInclude() {
+  private orderListInclude(options?: { userPushToken?: boolean }) {
     return {
-      user: { select: { id: true, name: true, email: true, phone: true, address: true } },
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          address: true,
+          ...(options?.userPushToken ? { pushToken: true } : {}),
+        },
+      },
       items: {
         include: {
           product: {
