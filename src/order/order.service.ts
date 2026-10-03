@@ -1,6 +1,7 @@
 // src/order/order.service.ts
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { Role, User } from '@prisma/client';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { generateOrderReference } from '../utils/generate-reference';
@@ -112,8 +113,14 @@ export class OrderService {
     return { ...this.formatOrderResponse(order), subtotal, deliveryFee, serviceFee };
   }
 
-  async updateStatus(id: string, updateOrderDto: UpdateOrderDto) {
-    const order = await this.findById(id);
+  async updateStatus(id: string, updateOrderDto: UpdateOrderDto, actor: User) {
+    const order = await this.getOrderForAccessCheck(id);
+
+    if (updateOrderDto.status) {
+      await this.assertCanUpdateOrderStatus(actor, order, updateOrderDto.status);
+    } else if (actor.role !== Role.ADMIN) {
+      throw new ForbiddenException('Only admin can update order details without status change');
+    }
 
     this.validateStatusTransition(order.status, updateOrderDto.status);
 
@@ -186,12 +193,31 @@ export class OrderService {
     return this.formatOrderResponse(updatedOrder);
   }
 
-  async findAll() {
+  async findAll(
+    actor: User,
+    filters?: { restaurantId?: string; status?: string },
+  ) {
+    if (actor.role !== Role.ADMIN && actor.role !== Role.COURIER) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    const where: {
+      status?: string;
+      items?: { some: { product: { restaurantId: string } } };
+    } = {};
+
+    if (actor.role === Role.ADMIN) {
+      if (filters?.status) {
+        where.status = filters.status;
+      }
+      if (filters?.restaurantId) {
+        where.items = { some: { product: { restaurantId: filters.restaurantId } } };
+      }
+    }
+
     const orders = await this.prisma.order.findMany({
-      include: {
-        user: { select: { id: true, name: true, email: true, phone: true, address: true } },
-        items: true,
-      },
+      where,
+      include: this.orderListInclude(),
       orderBy: { createdAt: 'desc' },
     });
     return orders.map(order => this.formatOrderResponse(order));
@@ -234,20 +260,21 @@ export class OrderService {
     return orders.map(order => this.formatOrderResponse(order));
   }
 
-  async findByRestaurant(restaurantId: string) {
+  async findByRestaurant(restaurantId: string, actor: User) {
+    await this.assertCanAccessRestaurantOrders(actor, restaurantId);
+
     const orders = await this.prisma.order.findMany({
       where: { items: { some: { product: { restaurantId } } } },
-      include: {
-        user: { select: { id: true, name: true, email: true, phone: true, address: true } },
-        items: { include: { product: { select: { restaurantId: true } } } },
-      },
+      include: this.orderListInclude(),
       orderBy: { createdAt: 'desc' },
     });
     return orders.map(order => this.formatOrderResponse(order));
   }
 
-  async cancelOrder(id: string) {
-    const order = await this.findById(id);
+  async cancelOrder(id: string, actor: User) {
+    const order = await this.getOrderForAccessCheck(id);
+    await this.assertCanUpdateOrderStatus(actor, order, 'CANCELLED');
+    this.validateStatusTransition(order.status, 'CANCELLED');
     if (order.status === 'DELIVERED') throw new BadRequestException('Cannot cancel delivered order');
     if (order.status === 'CANCELLED') throw new BadRequestException('Order is already cancelled');
     const cancelledOrder = await this.prisma.order.update({
@@ -258,7 +285,10 @@ export class OrderService {
     return this.formatOrderResponse(cancelledOrder);
   }
 
-  async deleteOrder(id: string) {
+  async deleteOrder(id: string, actor: User) {
+    if (actor.role !== Role.ADMIN) {
+      throw new ForbiddenException('Only admin can delete orders');
+    }
     const order = await this.findById(id);
     if (!['CANCELLED', 'DELIVERED'].includes(order.status)) {
       throw new BadRequestException('Can only delete cancelled or delivered orders');
@@ -362,10 +392,112 @@ export class OrderService {
     });
   }
 
+  private orderListInclude() {
+    return {
+      user: { select: { id: true, name: true, email: true, phone: true, address: true } },
+      items: {
+        include: {
+          product: {
+            select: {
+              restaurantId: true,
+              restaurant: { select: { id: true, name: true } },
+            },
+          },
+        },
+      },
+    };
+  }
+
+  private async getOrderForAccessCheck(id: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: { items: { include: { product: { select: { restaurantId: true } } } } },
+    });
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${id} not found`);
+    }
+    return order;
+  }
+
+  private async getRestaurantIdsForOrder(orderId: string): Promise<string[]> {
+    const items = await this.prisma.orderItem.findMany({
+      where: { orderId },
+      select: { product: { select: { restaurantId: true } } },
+    });
+    return [...new Set(items.map(item => item.product.restaurantId))];
+  }
+
+  private async assertCanAccessRestaurantOrders(actor: User, restaurantId: string) {
+    if (actor.role === Role.ADMIN) {
+      return;
+    }
+    if (actor.role !== Role.RESTAURANT) {
+      throw new ForbiddenException('Access denied');
+    }
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { ownerId: true },
+    });
+    if (!restaurant || restaurant.ownerId !== actor.id) {
+      throw new ForbiddenException('Access denied');
+    }
+  }
+
+  private async assertCanUpdateOrderStatus(actor: User, order: { id: string; status: string; courierId: string | null; userId: string | null }, newStatus: string) {
+    if (actor.role === Role.ADMIN) {
+      return;
+    }
+
+    if (actor.role === Role.RESTAURANT) {
+      const restaurantIds = await this.getRestaurantIdsForOrder(order.id);
+      const owns = await this.prisma.restaurant.count({
+        where: { ownerId: actor.id, id: { in: restaurantIds } },
+      });
+      if (!owns) {
+        throw new ForbiddenException('You cannot manage this order');
+      }
+      const allowed = ['ACCEPTED', 'READY', 'CANCELLED'];
+      if (!allowed.includes(newStatus)) {
+        throw new ForbiddenException('Restaurant can only accept, mark ready, or cancel orders');
+      }
+      return;
+    }
+
+    if (actor.role === Role.COURIER) {
+      if (newStatus === 'DELIVERED' && order.courierId === actor.id) {
+        return;
+      }
+      throw new ForbiddenException('Courier can only mark their delivery as delivered');
+    }
+
+    if (actor.role === Role.USER && order.userId === actor.id && newStatus === 'CANCELLED') {
+      return;
+    }
+
+    throw new ForbiddenException('Access denied');
+  }
+
   private formatOrderResponse(order: any) {
-    const { user, ...rest } = order;
+    const { user, items, ...rest } = order;
+    const restaurantsMap = new Map<string, { id: string; name: string }>();
+
+    const formattedItems = (items ?? []).map((item: any) => {
+      const restaurant = item.product?.restaurant;
+      if (restaurant) {
+        restaurantsMap.set(restaurant.id, { id: restaurant.id, name: restaurant.name });
+      }
+      const { product, ...itemRest } = item;
+      return {
+        ...itemRest,
+        restaurantId: product?.restaurantId ?? null,
+        restaurantName: restaurant?.name ?? null,
+      };
+    });
+
     return {
       ...rest,
+      items: formattedItems,
+      restaurants: [...restaurantsMap.values()],
       user: user ? { id: user.id, name: user.name, email: user.email, phone: user.phone, address: user.address } : null,
       total: order.total,
     };
