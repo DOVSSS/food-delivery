@@ -17,8 +17,8 @@ if (!client.includes('openTime')) {
 console.log('[entrypoint] Prisma client OK (openTime present)');
 "
 
-if ! grep -q 'role: true' dist/user/user.service.js; then
-  echo "[entrypoint] FATAL: dist/user/user.service.js missing role in findAll/update select"
+if ! grep -q 'pushToken' dist/user/user.service.js; then
+  echo "[entrypoint] FATAL: stale dist/user/user.service.js (findAll must omit pushToken)"
   exit 1
 fi
 

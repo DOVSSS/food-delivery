@@ -87,16 +87,8 @@ export class UserService {
 
   
   async findAll() {
-    return this.prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatarPath: true,
-        phone: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
+    const users = await this.prisma.user.findMany({
+      include: {
         orders: {
           select: {
             id: true,
@@ -104,10 +96,13 @@ export class UserService {
             status: true,
             total: true,
             createdAt: true,
-          }
-        }
-      }
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     });
+
+    return users.map(({ password, pushToken, address, ...user }) => user);
   }
 
   async findById(id: string) {

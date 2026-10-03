@@ -23,7 +23,7 @@ RUN rm -f tsconfig.build.tsbuildinfo \
     && npx prisma generate --schema=./prisma/schema.prisma \
     && grep -q openTime node_modules/.prisma/client/index.d.ts \
     && yarn build \
-    && grep -q 'role: true' dist/user/user.service.js
+    && grep -q 'pushToken' dist/user/user.service.js
 
 RUN mkdir -p /data/uploads
 
