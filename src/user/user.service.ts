@@ -78,6 +78,7 @@ export class UserService {
         avatarPath: true,
         phone: true,
         address: true,
+        role: true,
         createdAt: true,
         updatedAt: true,
       }
@@ -93,6 +94,7 @@ export class UserService {
         name: true,
         avatarPath: true,
         phone: true,
+        role: true,
         createdAt: true,
         updatedAt: true,
         orders: {

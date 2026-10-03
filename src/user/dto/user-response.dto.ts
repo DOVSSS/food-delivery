@@ -7,6 +7,7 @@ export class UserResponseDto {
   name: string;
   avatarPath: string;
   phone: string;
+  role: string;
   createdAt: Date;
   updatedAt: Date;
 
