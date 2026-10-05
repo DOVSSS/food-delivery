@@ -34,6 +34,11 @@ export class RestaurantController {
     return this.restaurantService.findByOwner(req.user.id);
   }
 
+  @Get('catalog')
+  findAllCatalog() {
+    return this.restaurantService.findAllCatalog();
+  }
+
   @Get()
   findAll() {
     return this.restaurantService.findAll();

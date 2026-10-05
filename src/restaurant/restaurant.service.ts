@@ -47,6 +47,19 @@ export class RestaurantService {
     return restaurants.map((r) => this.withIsOpen(r));
   }
 
+  /** Список для клиента: без вложенного меню, только счётчик блюд. */
+  async findAllCatalog() {
+    const restaurants = await this.prisma.restaurant.findMany({
+      include: {
+        _count: { select: { products: true } },
+      },
+    });
+    return restaurants.map(({ _count, ...restaurant }) => ({
+      ...this.withIsOpen(restaurant),
+      productCount: _count.products,
+    }));
+  }
+
   async findBySlug(slug: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { slug },

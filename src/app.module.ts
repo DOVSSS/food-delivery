@@ -11,6 +11,8 @@ import { OrderModule } from './order/order.module';
 import { UploadModule } from './upload/upload.module';  // ← добавить
 import { CategoryModule } from './category/category.module';
 import { SettingsModule } from './settings/settings.module';
+import { MediaModule } from './media/media.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot(),
@@ -22,6 +24,7 @@ import { SettingsModule } from './settings/settings.module';
     UploadModule, 
      CategoryModule,
      SettingsModule,
+     MediaModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

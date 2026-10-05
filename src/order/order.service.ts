@@ -187,6 +187,7 @@ export class OrderService {
       }
     }
 
+    await this.attachProductsToOrderItems([updatedOrder]);
     return this.formatOrderResponse(updatedOrder);
   }
 
@@ -217,6 +218,7 @@ export class OrderService {
       include: this.orderListInclude(),
       orderBy: { createdAt: 'desc' },
     });
+    await this.attachProductsToOrderItems(orders);
     return orders.map(order => this.formatOrderResponse(order));
   }
 
@@ -265,6 +267,7 @@ export class OrderService {
       include: this.orderListInclude(),
       orderBy: { createdAt: 'desc' },
     });
+    await this.attachProductsToOrderItems(orders);
     return orders.map(order => this.formatOrderResponse(order));
   }
 
@@ -279,6 +282,7 @@ export class OrderService {
       data: { status: 'CANCELLED' },
       include: this.orderListInclude(),
     });
+    await this.attachProductsToOrderItems([cancelledOrder]);
     return this.formatOrderResponse(cancelledOrder);
   }
 
@@ -387,6 +391,37 @@ export class OrderService {
       },
       select: { id: true, courierLat: true, courierLng: true, courierUpdatedAt: true },
     });
+  }
+
+  private async attachProductsToOrderItems(
+    orders: Array<{ items: Array<{ productId: string; product?: unknown }> }>,
+  ) {
+    const productIds = [
+      ...new Set(
+        orders.flatMap(order => order.items.map(item => item.productId).filter(Boolean)),
+      ),
+    ];
+    if (productIds.length === 0) {
+      return;
+    }
+
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: {
+        id: true,
+        restaurantId: true,
+        restaurant: { select: { id: true, name: true } },
+      },
+    });
+    const byId = new Map(products.map(product => [product.id, product]));
+
+    for (const order of orders) {
+      for (const item of order.items) {
+        if (!item.product) {
+          item.product = byId.get(item.productId) ?? null;
+        }
+      }
+    }
   }
 
   private orderListInclude(options?: { userPushToken?: boolean }) {
