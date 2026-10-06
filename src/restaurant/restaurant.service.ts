@@ -105,6 +105,26 @@ export class RestaurantService {
   }
 
   async delete(id: string) {
-    return this.prisma.restaurant.delete({ where: { id } });
+    const existing = await this.prisma.restaurant.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Restaurant not found');
+
+    await this.prisma.$transaction(async (tx) => {
+      const products = await tx.product.findMany({
+        where: { restaurantId: id },
+        select: { id: true },
+      });
+      const productIds = products.map((p) => p.id);
+
+      if (productIds.length > 0) {
+        await tx.orderItem.deleteMany({
+          where: { productId: { in: productIds } },
+        });
+        await tx.product.deleteMany({ where: { restaurantId: id } });
+      }
+
+      await tx.restaurant.delete({ where: { id } });
+    });
+
+    return { ok: true };
   }
 }
