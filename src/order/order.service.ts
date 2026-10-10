@@ -49,6 +49,9 @@ export class OrderService {
     const orderItems = items.map(item => {
       const product = productMap.get(item.productId);
       if (!product) throw new BadRequestException(`Product ${item.productId} not found`);
+      if (product.isAvailable === false) {
+        throw new BadRequestException(`«${product.name}» временно недоступно`);
+      }
       subtotal += product.price * item.quantity;
       return {
         productId: item.productId,

@@ -25,14 +25,14 @@ export class ProductController {
     return this.productService.findAll();
   }
 
-  @Get(':id')
-  findById(@Param('id') id: string) {
-    return this.productService.findById(id);
-  }
-
   @Get('restaurant/:restaurantId')
   findByRestaurant(@Param('restaurantId') restaurantId: string) {
     return this.productService.findByRestaurant(restaurantId);
+  }
+
+  @Get(':id')
+  findById(@Param('id') id: string) {
+    return this.productService.findById(id);
   }
 
   @Patch(':id')
