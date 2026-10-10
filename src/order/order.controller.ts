@@ -18,6 +18,7 @@ import {
 } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateTaxiOrderDto } from './dto/create-taxi-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -35,6 +36,14 @@ export class OrderController {
   @HttpCode(HttpStatus.CREATED)
   create(@Request() req, @Body() createOrderDto: CreateOrderDto) {
     return this.orderService.create(req.user.id, createOrderDto);
+  }
+
+  @Post('taxi')
+  @UseGuards(JwtAuthGuard)
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @HttpCode(HttpStatus.CREATED)
+  createTaxi(@Request() req, @Body() dto: CreateTaxiOrderDto) {
+    return this.orderService.createTaxi(req.user.id, dto);
   }
 
   @Get()

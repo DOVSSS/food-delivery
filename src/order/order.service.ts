@@ -3,6 +3,7 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { PrismaService } from '../prisma.service';
 import { Role, User } from '@prisma/client';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateTaxiOrderDto } from './dto/create-taxi-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { generateOrderReference } from '../utils/generate-reference';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -114,6 +115,90 @@ export class OrderService {
     }
 
     return { ...this.formatOrderResponse(order), subtotal, deliveryFee, serviceFee };
+  }
+
+  /**
+   * Taxi: skip restaurant flow — order is created as READY so couriers can accept immediately.
+   * Price uses the same deliveryFee + serviceFee as food delivery (subtotal = 0).
+   */
+  async createTaxi(userId: string, dto: CreateTaxiOrderDto) {
+    const {
+      deliveryAddress,
+      destinationAddress,
+      comment,
+      deliveryLat,
+      deliveryLng,
+      destinationLat,
+      destinationLng,
+    } = dto;
+
+    if (!deliveryAddress?.trim()) {
+      throw new BadRequestException('Pickup address is required');
+    }
+    if (!destinationAddress?.trim()) {
+      throw new BadRequestException('Destination address is required');
+    }
+
+    const settings = await this.settingsService.get();
+    const deliveryFee = settings.deliveryFee;
+    const serviceFee = settings.serviceFee;
+    const total = deliveryFee + serviceFee;
+    const reference = generateOrderReference();
+
+    const order = await this.prisma.order.create({
+      data: {
+        reference,
+        type: 'TAXI',
+        status: 'READY',
+        total,
+        deliveryFee,
+        deliveryAddress: deliveryAddress.trim(),
+        deliveryLat,
+        deliveryLng,
+        destinationAddress: destinationAddress.trim(),
+        destinationLat,
+        destinationLng,
+        comment,
+        userId,
+      },
+      include: { items: true },
+    });
+
+    const couriers = await this.prisma.user.findMany({
+      where: { role: 'COURIER', pushToken: { not: null } },
+      select: { pushToken: true },
+    });
+    const courierTokens = couriers.map(c => c.pushToken!);
+    if (courierTokens.length > 0) {
+      await this.notificationsService.sendToMany(
+        courierTokens,
+        '🚕 Новый заказ такси!',
+        `Заказ #${reference} ожидает курьера`,
+        { orderId: order.id },
+      );
+    }
+
+    if (order.userId) {
+      const customer = await this.prisma.user.findUnique({
+        where: { id: order.userId },
+        select: { pushToken: true },
+      });
+      if (customer?.pushToken) {
+        await this.notificationsService.sendPushNotification(
+          customer.pushToken,
+          '🚕 Такси заказано!',
+          `Заказ #${reference} — ищем курьера`,
+          { orderId: order.id },
+        );
+      }
+    }
+
+    return {
+      ...this.formatOrderResponse(order),
+      subtotal: 0,
+      deliveryFee,
+      serviceFee,
+    };
   }
 
   async updateStatus(id: string, updateOrderDto: UpdateOrderDto, actor: User) {
@@ -347,6 +432,7 @@ export class OrderService {
     if (order.status !== 'READY') {
       throw new BadRequestException('Order is not ready for delivery');
     }
+    const isTaxi = order.type === 'TAXI';
     if (order.courierId) {
       throw new BadRequestException('Order already taken by another courier');
     }
@@ -369,8 +455,10 @@ export class OrderService {
     if (updated.user?.pushToken) {
       await this.notificationsService.sendPushNotification(
         updated.user.pushToken,
-        '🚴 Курьер в пути!',
-        `Курьер забрал ваш заказ #${order.reference}`,
+        isTaxi ? '🚕 Курьер в пути!' : '🚴 Курьер в пути!',
+        isTaxi
+          ? `Курьер выехал по заказу #${order.reference}`
+          : `Курьер забрал ваш заказ #${order.reference}`,
         { orderId },
       );
     }
@@ -455,7 +543,9 @@ export class OrderService {
   private async getOrderForAccessCheck(id: string) {
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { items: { include: { product: { select: { restaurantId: true } } } } },
+      include: {
+        items: { include: { product: { select: { restaurantId: true } } } },
+      },
     });
     if (!order) {
       throw new NotFoundException(`Order with ID ${id} not found`);
@@ -487,12 +577,19 @@ export class OrderService {
     }
   }
 
-  private async assertCanUpdateOrderStatus(actor: User, order: { id: string; status: string; courierId: string | null; userId: string | null }, newStatus: string) {
+  private async assertCanUpdateOrderStatus(
+    actor: User,
+    order: { id: string; status: string; courierId: string | null; userId: string | null; type?: string },
+    newStatus: string,
+  ) {
     if (actor.role === Role.ADMIN) {
       return;
     }
 
     if (actor.role === Role.RESTAURANT) {
+      if (order.type === 'TAXI') {
+        throw new ForbiddenException('Restaurant cannot manage taxi orders');
+      }
       const restaurantIds = await this.getRestaurantIdsForOrder(order.id);
       const owns = await this.prisma.restaurant.count({
         where: { ownerId: actor.id, id: { in: restaurantIds } },

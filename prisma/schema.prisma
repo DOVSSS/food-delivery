@@ -100,6 +100,7 @@ model Order {
 
   reference String @unique
   status    String @default("PENDING")
+  type      String @default("FOOD")
   total     Int
 
   deliveryAddress  String?   @map("delivery_address")
@@ -108,6 +109,10 @@ model Order {
   deliveryLng      Float?    @map("delivery_lng")
   deliveryFee      Int       @default(150) @map("delivery_fee")
   comment          String?
+
+  destinationAddress String? @map("destination_address")
+  destinationLat     Float?  @map("destination_lat")
+  destinationLng     Float?  @map("destination_lng")
 
   userId String?
   user   User?   @relation("CustomerOrders", fields: [userId], references: [id])
@@ -123,6 +128,7 @@ model Order {
   @@index([userId])
   @@index([courierId])
   @@index([status])
+  @@index([type])
   @@index([createdAt])
   @@map("orders")
 }
