@@ -10,11 +10,11 @@ npx prisma generate --schema=./prisma/schema.prisma
 node -e "
 const fs = require('fs');
 const client = fs.readFileSync('node_modules/.prisma/client/index.d.ts', 'utf8');
-if (!client.includes('openTime')) {
-  console.error('[entrypoint] FATAL: Prisma client missing openTime after generate');
+if (!client.includes('openTime') || !client.includes('isAvailable')) {
+  console.error('[entrypoint] FATAL: Prisma client missing openTime or isAvailable after generate');
   process.exit(1);
 }
-console.log('[entrypoint] Prisma client OK (openTime present)');
+console.log('[entrypoint] Prisma client OK (openTime, isAvailable present)');
 "
 
 if ! grep -q 'pushToken' dist/user/user.service.js; then
