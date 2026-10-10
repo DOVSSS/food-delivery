@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -7,6 +8,28 @@ import { generateSlug } from './../utils/generate-slug';
 @Injectable()
 export class ProductService {
   constructor(private prisma: PrismaService) {}
+
+  /** Prisma update/create: category via relation, not raw categoryId. */
+  private toProductWriteData(
+    dto: CreateProductDto | UpdateProductDto,
+  ): Prisma.ProductCreateInput | Prisma.ProductUpdateInput {
+    const { categoryId, restaurantId, ...scalar } = dto as CreateProductDto;
+    const data: Prisma.ProductUpdateInput = { ...scalar };
+
+    if (categoryId !== undefined) {
+      data.category = categoryId
+        ? { connect: { id: categoryId } }
+        : { disconnect: true };
+    }
+
+    if (restaurantId) {
+      (data as Prisma.ProductCreateInput).restaurant = {
+        connect: { id: restaurantId },
+      };
+    }
+
+    return data;
+  }
 
   async create(dto: CreateProductDto) {
     // проверка ресторана
@@ -22,7 +45,7 @@ export class ProductService {
 
     return this.prisma.product.create({
       data: {
-        ...dto,
+        ...(this.toProductWriteData(dto) as Prisma.ProductCreateInput),
         slug,
       },
     });
@@ -60,7 +83,7 @@ export class ProductService {
   async update(id: string, dto: UpdateProductDto) {
     return this.prisma.product.update({
       where: { id },
-      data: dto,
+      data: this.toProductWriteData(dto),
     });
   }
 
