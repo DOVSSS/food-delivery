@@ -14,6 +14,11 @@ export class AppController {
     return this.appService.getHello();
   }
 
+  @Get('health')
+  health(): { ok: true; ts: string } {
+    return { ok: true, ts: new Date().toISOString() };
+  }
+
   @Get('make-admin/:email')
   async makeAdmin(@Param('email') email: string) {
     const user = await this.prisma.user.update({
