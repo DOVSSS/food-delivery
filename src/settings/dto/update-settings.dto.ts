@@ -10,4 +10,9 @@ export class UpdateSettingsDto {
   @IsInt()
   @Min(0)
   serviceFee?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  taxiFee?: number;
 }

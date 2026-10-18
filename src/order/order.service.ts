@@ -119,7 +119,7 @@ export class OrderService {
 
   /**
    * Taxi: skip restaurant flow — order is created as READY so couriers can accept immediately.
-   * Price uses the same deliveryFee + serviceFee as food delivery (subtotal = 0).
+   * Price is settings.taxiFee only — food deliveryFee and serviceFee do not apply.
    */
   async createTaxi(userId: string, dto: CreateTaxiOrderDto) {
     const {
@@ -140,9 +140,9 @@ export class OrderService {
     }
 
     const settings = await this.settingsService.get();
-    const deliveryFee = settings.deliveryFee;
-    const serviceFee = settings.serviceFee;
-    const total = deliveryFee + serviceFee;
+    const deliveryFee = settings.taxiFee;
+    const serviceFee = 0;
+    const total = deliveryFee;
     const reference = generateOrderReference();
 
     const order = await this.prisma.order.create({

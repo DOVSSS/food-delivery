@@ -156,6 +156,7 @@ model Settings {
   id    String @id @default("default")
   deliveryFee  Int @default(150) @map("delivery_fee")
   serviceFee   Int @default(50) @map("service_fee")
+  taxiFee      Int @default(200) @map("taxi_fee")
 
   @@map("settings")
 }
