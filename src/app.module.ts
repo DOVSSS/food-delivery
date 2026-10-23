@@ -12,6 +12,7 @@ import { UploadModule } from './upload/upload.module';  // ← добавить
 import { CategoryModule } from './category/category.module';
 import { SettingsModule } from './settings/settings.module';
 import { MediaModule } from './media/media.module';
+import { LegalController } from './legal/legal.controller';
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { MediaModule } from './media/media.module';
      SettingsModule,
      MediaModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, LegalController],
   providers: [AppService, PrismaService],
 })
 export class AppModule {}

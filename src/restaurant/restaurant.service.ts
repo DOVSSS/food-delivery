@@ -50,6 +50,8 @@ export class RestaurantService {
   /** Список для клиента: без вложенного меню, только счётчик блюд. */
   async findAllCatalog() {
     const restaurants = await this.prisma.restaurant.findMany({
+      // Владелец удалил аккаунт (onDelete: SetNull) — заказы принимать некому
+      where: { ownerId: { not: null } },
       include: {
         _count: { select: { products: true } },
       },

@@ -53,6 +53,9 @@ export class OrderService {
       if (product.isAvailable === false) {
         throw new BadRequestException(`«${product.name}» временно недоступно`);
       }
+      if (!product.restaurant?.ownerId) {
+        throw new BadRequestException('Ресторан больше не принимает заказы');
+      }
       subtotal += product.price * item.quantity;
       return {
         productId: item.productId,
@@ -368,8 +371,18 @@ export class OrderService {
     const cancelledOrder = await this.prisma.order.update({
       where: { id },
       data: { status: 'CANCELLED' },
-      include: this.orderListInclude(),
+      include: this.orderListInclude({ userPushToken: true }),
     });
+
+    if (actor.id !== cancelledOrder.userId && cancelledOrder.user?.pushToken) {
+      await this.notificationsService.sendPushNotification(
+        cancelledOrder.user.pushToken,
+        '❌ Заказ отменён',
+        `Заказ #${cancelledOrder.reference} был отменён`,
+        { orderId: id },
+      );
+    }
+
     await this.attachProductsToOrderItems([cancelledOrder]);
     return this.formatOrderResponse(cancelledOrder);
   }
