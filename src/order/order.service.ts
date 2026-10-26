@@ -1,7 +1,7 @@
 // src/order/order.service.ts
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { Role, User } from '@prisma/client';
+import { Prisma, Role, User } from '@prisma/client';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateTaxiOrderDto } from './dto/create-taxi-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -290,18 +290,21 @@ export class OrderService {
       throw new ForbiddenException('Access denied');
     }
 
-    const where: {
-      status?: string;
-      items?: { some: { product: { restaurantId: string } } };
-    } = {};
+    const where: Prisma.OrderWhereInput = {};
 
     if (actor.role === Role.ADMIN) {
       if (filters?.status) {
-        where.status = filters.status;
+        where.status = filters.status as Prisma.OrderWhereInput['status'];
       }
       if (filters?.restaurantId) {
         where.items = { some: { product: { restaurantId: filters.restaurantId } } };
       }
+    } else {
+      // Курьер: ещё не взятые активные заказы + свои (в пути, доставленные, отменённые)
+      where.OR = [
+        { courierId: null, status: { in: ['PENDING', 'ACCEPTED', 'READY'] } },
+        { courierId: actor.id },
+      ];
     }
 
     const orders = await this.prisma.order.findMany({
@@ -450,13 +453,21 @@ export class OrderService {
       throw new BadRequestException('Order already taken by another courier');
     }
 
-    const updated = await this.prisma.order.update({
-      where: { id: orderId },
+    // Условие в самом UPDATE: если двое нажали одновременно, заказ получит только один
+    const { count } = await this.prisma.order.updateMany({
+      where: { id: orderId, status: 'READY', courierId: null },
       data: {
         courierId,
         status: 'DELIVERING',
         deliveryTime: new Date(),
       },
+    });
+    if (count === 0) {
+      throw new BadRequestException('Order already taken by another courier');
+    }
+
+    const updated = await this.prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
       include: {
         items: true,
         courier: { select: { id: true, name: true, phone: true } },
