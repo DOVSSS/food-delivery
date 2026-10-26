@@ -6,7 +6,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateTaxiOrderDto } from './dto/create-taxi-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { generateOrderReference } from '../utils/generate-reference';
-import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsService, COURIER_NEW_ORDER_SOUND } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
@@ -114,6 +114,7 @@ export class OrderService {
         '🛍️ Новый заказ!',
         `Поступил новый заказ #${reference}`,
         { orderId: order.id },
+        COURIER_NEW_ORDER_SOUND,
       );
     }
 
@@ -178,6 +179,7 @@ export class OrderService {
         '🚕 Новый заказ такси!',
         `Заказ #${reference} ожидает курьера`,
         { orderId: order.id },
+        COURIER_NEW_ORDER_SOUND,
       );
     }
 
@@ -274,6 +276,7 @@ export class OrderService {
           '🚴 Заказ готов к выдаче!',
           `Заказ #${order.reference} ожидает курьера`,
           { orderId: id },
+          COURIER_NEW_ORDER_SOUND,
         );
       }
     }
