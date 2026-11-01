@@ -104,6 +104,13 @@ export class OrderController {
     return this.orderService.acceptOrder(id, req.user.id);
   }
 
+  @Patch(':id/pickup')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.COURIER)
+  pickupOrder(@Param('id') id: string, @Request() req) {
+    return this.orderService.pickupOrder(id, req.user.id);
+  }
+
   @Patch(':id/location')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.COURIER)

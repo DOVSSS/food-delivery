@@ -260,13 +260,19 @@ export class OrderService {
         await this.notificationsService.sendPushNotification(
           updatedOrder.user.pushToken,
           '🍕 Заказ готов!',
-          `Ваш заказ #${order.reference} готов, ждём курьера`,
+          order.courierId
+            ? `Ваш заказ #${order.reference} готов, курьер скоро заберёт его`
+            : `Ваш заказ #${order.reference} готов, ждём курьера`,
           { orderId: id },
         );
       }
-      // Курьерам
+      // Назначенному курьеру, иначе всем курьерам
       const couriers = await this.prisma.user.findMany({
-        where: { role: 'COURIER', pushToken: { not: null } },
+        where: {
+          role: 'COURIER',
+          pushToken: { not: null },
+          ...(order.courierId ? { id: order.courierId } : {}),
+        },
         select: { pushToken: true },
       });
       const tokens = couriers.map(c => c.pushToken!);
@@ -448,22 +454,26 @@ export class OrderService {
       include: { user: { select: { pushToken: true } } },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.status !== 'READY') {
+    const isTaxi = order.type === 'TAXI';
+    // Еду можно взять сразу после принятия рестораном; статус DELIVERING ставит pickupOrder
+    const acceptableStatuses = isTaxi ? ['READY'] : ['ACCEPTED', 'READY'];
+    if (!acceptableStatuses.includes(order.status)) {
       throw new BadRequestException('Order is not ready for delivery');
     }
-    const isTaxi = order.type === 'TAXI';
     if (order.courierId) {
       throw new BadRequestException('Order already taken by another courier');
     }
 
     // Условие в самом UPDATE: если двое нажали одновременно, заказ получит только один
     const { count } = await this.prisma.order.updateMany({
-      where: { id: orderId, status: 'READY', courierId: null },
-      data: {
-        courierId,
-        status: 'DELIVERING',
-        deliveryTime: new Date(),
+      where: {
+        id: orderId,
+        status: { in: acceptableStatuses },
+        courierId: null,
       },
+      data: isTaxi
+        ? { courierId, status: 'DELIVERING', deliveryTime: new Date() }
+        : { courierId },
     });
     if (count === 0) {
       throw new BadRequestException('Order already taken by another courier');
@@ -482,10 +492,56 @@ export class OrderService {
     if (updated.user?.pushToken) {
       await this.notificationsService.sendPushNotification(
         updated.user.pushToken,
-        isTaxi ? '🚕 Курьер в пути!' : '🚴 Курьер в пути!',
+        isTaxi ? '🚕 Курьер в пути!' : '🚴 Курьер назначен',
         isTaxi
           ? `Курьер выехал по заказу #${order.reference}`
-          : `Курьер забрал ваш заказ #${order.reference}`,
+          : `Курьер едет в ресторан за вашим заказом #${order.reference}`,
+        { orderId },
+      );
+    }
+
+    return this.formatOrderResponse(updated);
+  }
+
+  /** Курьер забрал еду в ресторане — для клиента заказ становится «Доставляется». */
+  async pickupOrder(orderId: string, courierId: string) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.courierId !== courierId) {
+      throw new ForbiddenException('You are not the courier for this order');
+    }
+    if (order.status === 'DELIVERING') {
+      throw new BadRequestException('Order is already picked up');
+    }
+    if (order.status === 'ACCEPTED') {
+      throw new BadRequestException('Restaurant has not marked the order as ready yet');
+    }
+    if (order.status !== 'READY') {
+      throw new BadRequestException(`Cannot pick up order with status ${order.status}`);
+    }
+
+    const { count } = await this.prisma.order.updateMany({
+      where: { id: orderId, courierId, status: 'READY' },
+      data: { status: 'DELIVERING', deliveryTime: new Date() },
+    });
+    if (count === 0) {
+      throw new BadRequestException('Order status has changed, refresh and try again');
+    }
+
+    const updated = await this.prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      include: {
+        items: true,
+        courier: { select: { id: true, name: true, phone: true } },
+        user: { select: { id: true, name: true, email: true, phone: true, address: true, pushToken: true } },
+      },
+    });
+
+    if (updated.user?.pushToken) {
+      await this.notificationsService.sendPushNotification(
+        updated.user.pushToken,
+        '🚴 Курьер в пути!',
+        `Курьер забрал ваш заказ #${order.reference}`,
         { orderId },
       );
     }
