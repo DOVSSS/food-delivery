@@ -75,8 +75,8 @@ model Product {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  name        String  @unique
-  slug        String  @unique
+  name        String
+  slug        String
   description String?
   price       Int
   image       String?
@@ -90,6 +90,7 @@ model Product {
 
   orderItems OrderItem[]
 
+  @@unique([restaurantId, slug])
   @@map("product")
 }
 

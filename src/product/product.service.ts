@@ -1,9 +1,22 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { generateSlug } from './../utils/generate-slug';
+import { rethrowPrismaWriteError } from '../utils/prisma-write-error';
+
+const PRODUCT_PRISMA_LABELS = {
+  duplicateName: 'Блюдо с таким названием уже существует. Укажите другое название.',
+  duplicateSlug: 'Блюдо с похожим названием уже существует. Укажите другое название.',
+  duplicate: 'Такое блюдо уже существует.',
+  notFound: 'Блюдо не найдено',
+  foreignKey: 'Указана несуществующая категория или ресторан.',
+};
 
 @Injectable()
 export class ProductService {
@@ -31,24 +44,59 @@ export class ProductService {
     return data;
   }
 
+  private async makeUniqueSlug(name: string, excludeId?: string) {
+    const base = generateSlug(name) || 'bludo';
+    let slug = base;
+
+    for (let i = 2; i < 1000; i++) {
+      const found = await this.prisma.product.findFirst({
+        where: {
+          slug,
+          ...(excludeId ? { id: { not: excludeId } } : {}),
+        },
+        select: { id: true },
+      });
+      if (!found) return slug;
+      slug = `${base}-${i}`;
+    }
+
+    return `${base}-${Date.now()}`;
+  }
+
+  private async assertCategoryExists(categoryId?: string) {
+    if (!categoryId) return;
+    const category = await this.prisma.category.findUnique({
+      where: { id: categoryId },
+      select: { id: true },
+    });
+    if (!category) {
+      throw new BadRequestException('Категория не найдена');
+    }
+  }
+
   async create(dto: CreateProductDto) {
-    // проверка ресторана
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: dto.restaurantId },
     });
 
     if (!restaurant) {
-      throw new NotFoundException('Restaurant not found');
+      throw new NotFoundException('Ресторан не найден');
     }
 
-    const slug = await generateSlug(dto.name);
+    await this.assertCategoryExists(dto.categoryId);
 
-    return this.prisma.product.create({
-      data: {
-        ...(this.toProductWriteData(dto) as Prisma.ProductCreateInput),
-        slug,
-      },
-    });
+    const slug = await this.makeUniqueSlug(dto.name);
+
+    try {
+      return await this.prisma.product.create({
+        data: {
+          ...(this.toProductWriteData(dto) as Prisma.ProductCreateInput),
+          slug,
+        },
+      });
+    } catch (error) {
+      rethrowPrismaWriteError(error, PRODUCT_PRISMA_LABELS);
+    }
   }
 
   async findAll() {
@@ -68,7 +116,7 @@ export class ProductService {
     });
 
     if (!product) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException('Блюдо не найдено');
     }
 
     return product;
@@ -81,16 +129,27 @@ export class ProductService {
   }
 
   async update(id: string, dto: UpdateProductDto) {
-    return this.prisma.product.update({
-      where: { id },
-      data: this.toProductWriteData(dto),
-    });
+    const existing = await this.prisma.product.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException('Блюдо не найдено');
+    }
+
+    await this.assertCategoryExists(dto.categoryId);
+
+    try {
+      return await this.prisma.product.update({
+        where: { id },
+        data: this.toProductWriteData(dto),
+      });
+    } catch (error) {
+      rethrowPrismaWriteError(error, PRODUCT_PRISMA_LABELS);
+    }
   }
 
   async delete(id: string) {
     const existing = await this.prisma.product.findUnique({ where: { id } });
     if (!existing) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException('Блюдо не найдено');
     }
 
     await this.prisma.$transaction(async (tx) => {

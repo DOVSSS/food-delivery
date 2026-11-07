@@ -1,31 +1,40 @@
-import { IsString, IsNotEmpty, IsInt, Min, IsOptional, IsBoolean } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsString,
+  IsNotEmpty,
+  IsInt,
+  Min,
+  IsOptional,
+  IsBoolean,
+} from 'class-validator';
 
 export class CreateProductDto {
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ message: 'Название должно быть текстом' })
+  @IsNotEmpty({ message: 'Укажите название блюда' })
   name: string;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Описание должно быть текстом' })
   description?: string;
 
-  @IsInt()
-  @Min(0)
+  @Type(() => Number)
+  @IsInt({ message: 'Цена должна быть целым числом' })
+  @Min(1, { message: 'Цена должна быть больше 0' })
   price: number;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Некорректный путь к фото' })
   image?: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ message: 'Не указан ресторан' })
+  @IsNotEmpty({ message: 'Не указан ресторан' })
   restaurantId: string;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Некорректная категория' })
   categoryId?: string;
 
   @IsOptional()
-  @IsBoolean()
+  @IsBoolean({ message: 'Некорректный статус наличия' })
   isAvailable?: boolean;
 }
