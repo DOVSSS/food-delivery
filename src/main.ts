@@ -2,11 +2,21 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
-import { HttpExceptionFilter } from './http-exception.filter';
+import sharp from 'sharp';
+
+// По умолчанию libvips берёт потоки по числу ядер хоста и упирается в CPU-лимит контейнера
+sharp.concurrency(1);
+sharp.cache(false);
+
+// Имена загруженных файлов уникальны (timestamp + random), содержимое по URL не меняется
+const UPLOADS_STATIC_OPTIONS = {
+  prefix: '/uploads',
+  maxAge: '365d',
+  immutable: true,
+};
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  app.useGlobalFilters(new HttpExceptionFilter());
   
   app.setGlobalPrefix('api');
   
@@ -17,14 +27,10 @@ async function bootstrap() {
   });
 
   // Постоянное хранилище (новые файлы)
-  app.useStaticAssets('/data/uploads', {
-    prefix: '/uploads',
-  });
+  app.useStaticAssets('/data/uploads', UPLOADS_STATIC_OPTIONS);
 
   // Fallback — файлы внутри контейнера (старые)
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-    prefix: '/uploads',
-  });
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), UPLOADS_STATIC_OPTIONS);
 
   await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
 }
