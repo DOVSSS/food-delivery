@@ -378,13 +378,22 @@ export class OrderService {
 
   async cancelOrder(id: string, actor: User) {
     const order = await this.getOrderForAccessCheck(id);
+    if (order.status === 'DELIVERED') throw new BadRequestException('Доставленный заказ нельзя отменить');
+    if (order.status === 'CANCELLED') throw new BadRequestException('Заказ уже отменён');
     await this.assertCanUpdateOrderStatus(actor, order, 'CANCELLED');
     this.validateStatusTransition(order.status, 'CANCELLED');
-    if (order.status === 'DELIVERED') throw new BadRequestException('Cannot cancel delivered order');
-    if (order.status === 'CANCELLED') throw new BadRequestException('Order is already cancelled');
-    const cancelledOrder = await this.prisma.order.update({
-      where: { id },
+
+    // Статус мог смениться после проверки (ресторан принял, курьер взял) — отменяем только если он прежний
+    const { count } = await this.prisma.order.updateMany({
+      where: { id, status: order.status, courierId: order.courierId },
       data: { status: 'CANCELLED' },
+    });
+    if (count === 0) {
+      throw new BadRequestException('Статус заказа изменился, обновите список');
+    }
+
+    const cancelledOrder = await this.prisma.order.findUniqueOrThrow({
+      where: { id },
       include: this.orderListInclude({ userPushToken: true }),
     });
 
@@ -671,6 +680,20 @@ export class OrderService {
       return;
     }
 
+    // Клиент отменяет свой заказ по правилам клиента, какая бы роль ни была у аккаунта
+    if (newStatus === 'CANCELLED' && order.userId === actor.id) {
+      if (this.customerCanCancel(order)) {
+        return;
+      }
+      if (actor.role !== Role.RESTAURANT) {
+        throw new BadRequestException(
+          order.type === 'TAXI'
+            ? 'Курьер уже принял заказ, отменить его нельзя'
+            : 'Ресторан уже принял заказ, отменить его нельзя',
+        );
+      }
+    }
+
     if (actor.role === Role.RESTAURANT) {
       if (order.type === 'TAXI') {
         throw new ForbiddenException('Restaurant cannot manage taxi orders');
@@ -696,11 +719,14 @@ export class OrderService {
       throw new ForbiddenException('Courier can only mark their delivery as delivered');
     }
 
-    if (actor.role === Role.USER && order.userId === actor.id && newStatus === 'CANCELLED') {
-      return;
-    }
-
     throw new ForbiddenException('Access denied');
+  }
+
+  private customerCanCancel(order: { status: string; courierId: string | null; type?: string }) {
+    if (order.type === 'TAXI') {
+      return ['PENDING', 'READY'].includes(order.status) && !order.courierId;
+    }
+    return order.status === 'PENDING';
   }
 
   private formatOrderResponse(order: any) {
