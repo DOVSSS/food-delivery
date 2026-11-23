@@ -11,17 +11,12 @@ export class UserService {
 
   async create(createUserDto: CreateUserDto) {
     // Проверка на существующего пользователя
-    const existingUser = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: createUserDto.email },
-          { name: createUserDto.name }
-        ]
-      }
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: createUserDto.email },
     });
 
     if (existingUser) {
-      throw new ConflictException('User with this email or name already exists');
+      throw new ConflictException('User with this email already exists');
     }
 
     // Хеширование пароля с помощью argon2
@@ -42,20 +37,17 @@ export class UserService {
     // Проверяем существует ли пользователь
     await this.findById(id);
 
-    // Если есть новый email или name, проверяем уникальность
-    if (updateUserDto.email || updateUserDto.name) {
+    // Если есть новый email, проверяем уникальность
+    if (updateUserDto.email) {
       const existingUser = await this.prisma.user.findFirst({
         where: {
-          OR: [
-            { email: updateUserDto.email },
-            { name: updateUserDto.name }
-          ],
+          email: updateUserDto.email,
           NOT: { id }
         }
       });
 
       if (existingUser) {
-        throw new ConflictException('User with this email or name already exists');
+        throw new ConflictException('User with this email already exists');
       }
     }
 
@@ -137,7 +129,7 @@ export class UserService {
   }
 
   async findByName(name: string) {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.user.findFirst({
       where: { name },
     });
 
