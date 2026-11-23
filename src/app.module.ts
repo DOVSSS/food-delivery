@@ -13,6 +13,7 @@ import { CategoryModule } from './category/category.module';
 import { SettingsModule } from './settings/settings.module';
 import { MediaModule } from './media/media.module';
 import { LegalController } from './legal/legal.controller';
+import { RevenueModule } from './revenue/revenue.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { LegalController } from './legal/legal.controller';
      CategoryModule,
      SettingsModule,
      MediaModule,
+     RevenueModule,
   ],
   controllers: [AppController, LegalController],
   providers: [AppService, PrismaService],

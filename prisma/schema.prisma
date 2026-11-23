@@ -28,9 +28,11 @@ model User {
   pushToken  String? @map("push_token")
   role       Role    @default(USER)
 
-  orders        Order[]      @relation("CustomerOrders")
-  courierOrders Order[]      @relation("CourierOrders")
-  restaurants   Restaurant[]
+  orders                  Order[]                @relation("CustomerOrders")
+  courierOrders           Order[]                @relation("CourierOrders")
+  restaurants             Restaurant[]
+  serviceFeeSettlements   ServiceFeeSettlement[] @relation("CourierSettlements")
+  confirmedFeeSettlements ServiceFeeSettlement[] @relation("ConfirmedSettlements")
 
   @@index([email])
   @@index([name])
@@ -109,6 +111,7 @@ model Order {
   deliveryLat      Float?    @map("delivery_lat")
   deliveryLng      Float?    @map("delivery_lng")
   deliveryFee      Int       @default(150) @map("delivery_fee")
+  serviceFee       Int       @default(0) @map("service_fee")
   comment          String?
 
   destinationAddress String? @map("destination_address")
@@ -124,6 +127,9 @@ model Order {
   courierLng       Float?    @map("courier_lng")
   courierUpdatedAt DateTime? @map("courier_updated_at")
 
+  serviceFeeSettlementId String?               @map("service_fee_settlement_id")
+  serviceFeeSettlement   ServiceFeeSettlement? @relation(fields: [serviceFeeSettlementId], references: [id])
+
   items OrderItem[]
 
   @@index([userId])
@@ -131,6 +137,7 @@ model Order {
   @@index([status])
   @@index([type])
   @@index([createdAt])
+  @@index([serviceFeeSettlementId])
   @@map("orders")
 }
 
@@ -160,4 +167,24 @@ model Settings {
   taxiFee      Int @default(200) @map("taxi_fee")
 
   @@map("settings")
+}
+
+model ServiceFeeSettlement {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  amount      Int
+  courierName String @map("courier_name")
+
+  courierId String? @map("courier_id")
+  courier   User?   @relation("CourierSettlements", fields: [courierId], references: [id], onDelete: SetNull)
+
+  confirmedById String? @map("confirmed_by_id")
+  confirmedBy   User?   @relation("ConfirmedSettlements", fields: [confirmedById], references: [id], onDelete: SetNull)
+
+  orders Order[]
+
+  @@index([courierId])
+  @@index([createdAt])
+  @@map("service_fee_settlements")
 }
